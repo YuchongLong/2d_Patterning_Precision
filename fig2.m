@@ -156,13 +156,13 @@ if simulate
         
         % average CV's and sigma_x across all gradients
         if average
-            CV_lambda(i) = nanmean(nanstd(lambda,0,1)./nanmean(lambda,1));
-            CV_lambda_SE(i) = nanstd(bootstrp(nboot, @(x) nanmean(nanstd(x,0,1)./nanmean(x,1)), lambda));
-            CV_0(i) = nanmean(nanstd(C0,0,1)./nanmean(C0,1));
-            CV_0_SE(i) = nanstd(bootstrp(nboot, @(x) nanmean(nanstd(x,0,1)./nanmean(x,1)), C0));
+            CV_lambda(i) = nanstd(nanmean(lambda,2))/nanmean(lambda,'all');
+            CV_lambda_SE(i) = nanstd(bootstrp(nboot, @(x) nanstd(nanmean(x,2))/nanmean(x,'all'), lambda));
+            CV_0(i) = nanstd(nanmean(C0,2))/nanmean(C0,'all');
+            CV_0_SE(i) = nanstd(bootstrp(nboot, @(x) nanstd(nanmean(x,2))/nanmean(x,'all'), C0));
             for j = 1:numel(readouts)
-                sigma_x(i,j) = nanmean(nanstd(x_theta(:,:,j),0,1));
-                sigma_x_SE(i,j) = nanstd(bootstrp(nboot, @(x) nanmean(nanstd(x,0,1)), x_theta(:,:,j)));
+                sigma_x(i,j) = nanstd(nanmean(x_theta(:,:,j),2));
+                sigma_x_SE(i,j) = nanstd(bootstrp(nboot, @(x) nanstd(nanmean(x,2)), x_theta(:,:,j)));
             end
         end
     end
