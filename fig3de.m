@@ -1,8 +1,8 @@
-function fig3
+function fig3de
 
-% simulate the reaction-diffusion equation with fixed domain size and 
-% fixed cell diameter in x direction, then calculate the gradient variability
-% and positional error as the diameter in y direction increases.
+% simulate the reaction-diffusion equation with fixed cell area (fixed A = delta_x*delta_y),
+% then calculate the gradient variability and positional error as the diameter in y direction increases.
+
 
 % options
 simulate = true; % if false, plot results from saved files instead of generating new data
@@ -22,8 +22,9 @@ nruns = 1e3; % number of independent simulation runs
 nboot = 1e4; % number of bootstrap samples for error estimation
 res = 3; % linear grid resolution of each cell
 diameter = 5; % default cell diameter [µm]
-diameterX = diameter; % cell diameter in x direction
-diameterY = 1:20; % range of cell diameters in y direction
+area = diameter * diameter; % cell area [µm^2]
+diameterY = 1:20; % range of diameters in y direction
+diameterX = area ./ diameterY; % diameter in x direction
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
 mu_lambda = 20; % mean gradient length [µm]
 mu_d = mu_D/mu_lambda^2; % mean morphogen degradation rate [1/s]
@@ -39,11 +40,10 @@ colors = [0, 0.4470, 0.7410;...
 
 
 % derived variables
-ncX = ncS + ncP; % total number of cells along the patterning axis
-LS = ncS * diameterX; % source length
-LP = ncP * diameterX; % pattern length
-hx = diameterX / res; % grid spacing in x direction
-
+LS = ncS * diameter; % source length
+LP = ncP * diameter; % pattern length
+LX = LS + LP;
+LY = 50;
 
 % analytical deterministic solution
 C = @(x) mu_p/mu_d * ((x<0) .* (1-cosh(x/mu_lambda)) + sinh(LS/mu_lambda) / sinh((LS+LP)/mu_lambda) * cosh((LP-x)/mu_lambda));
@@ -70,7 +70,10 @@ if simulate
     for i = 1:length(diameterY)
         diameterY(i)
 
-        LY = 0.2*LP; % fixed width of the domain
+        LY = 50; % tissue width
+        LS = 25; % source length
+        LP = 250; % patterning length
+        LX = LS + LP; % tissue length
 
         % if the last cell exceeds the domain boundary, determine
         % whether or not the domain width is closer to the target
@@ -86,7 +89,30 @@ if simulate
             LY = ncY * diameterY(i);
         end
         
-        hy = diameterY(i) / res; % grid spacing in y direction
+        hY = diameterY(i) / res; % grid spacing in y direction
+
+        if mod(LS/diameterX(i),1) == 0
+            ncS = LS/diameterX(i);
+        elseif mod(LS/diameterX(i),1) < 0.5
+            ncS = floor(LS/diameterX(i));
+            LS = ncS * diameterX(i);
+        else
+            ncS = ceil(LS/diameterX(i));
+            LS = ncX * diameterX(i);
+        end
+
+        if mod(LP/diameterX(i),1) == 0
+            ncP = LP/diameterX(i);
+        elseif mod(LP/diameterX(i),1) < 0.5
+            ncP = floor(LP/diameterX(i));
+            LP = ncP * diameterX(i);
+        else
+            ncP = ceil(LP/diameterX(i));
+            LP = ncX * diameterX(i);
+        end
+
+        ncX = ncS + ncP;
+        hX = diameterX(i) / res; % grid spacing in y direction
 
         lambda = NaN(nruns, ncY);
         C0 = lambda;
@@ -107,9 +133,10 @@ if simulate
             D = repelem(D, res, res);
     
             % deterministic solution as initial guess
-            x = linspace(-LS, LP-hx, ncX * res)' + hx/2;
+            x = linspace(-LS, LP-hX, ncX * res)' + hX/2;
             C_old = C(x) * ones(1, ncY * res);
             
+           
             param = {p,d,D};
             % solve the reaction-diffusion equation
             if zerofluxbc
@@ -117,6 +144,7 @@ if simulate
             else
                 C_new = boundary_conditions.periodic_bc(C_old, param, hx, hy, tol);
             end
+
 
             % for each cell in y direction
             for y = 1:ncY
@@ -165,14 +193,13 @@ if simulate
 
         % determine the CV of the decay length and the amplitude, and the positional error, over the independent runs
         % and also their standard errors from bootstrapping
-        y = ceil(ncY/2); % a single cell-row at the middle of the domain
-        CV_lambda(i) = CVfun(lambda(:,y));
-        CV_lambda_SE(i) = nanstd(bootstrp(nboot, CVfun, lambda(:,y)));
-        CV_0(i) = CVfun(C0(:,y));
-        CV_0_SE(i) = nanstd(bootstrp(nboot, CVfun, C0(:,y)));
+        CV_lambda(i) = nanmean(nanstd(lambda,0,1)./nanmean(lambda,1));
+        CV_lambda_SE(i) = nanstd(bootstrp(nboot, @(x) nanmean(nanstd(x,0,1)./nanmean(x,1)), lambda));
+        CV_0(i) = nanmean(nanstd(C0,0,1)./nanmean(C0,1));
+        CV_0_SE(i) = nanstd(bootstrp(nboot, @(x) nanmean(nanstd(x,0,1)./nanmean(x,1)), C0));
         for j = 1:numel(readouts)
-            sigma_x(i,j) = nanstd(x_theta(:,y,j));            
-            sigma_x_SE(i,j) = nanstd(bootstrp(nboot, @nanstd, x_theta(:,y,j)));
+            sigma_x(i,j) = nanmean(nanstd(x_theta(:,:,j),0,1));
+            sigma_x_SE(i,j) = nanstd(bootstrp(nboot, @(x) nanmean(nanstd(x,0,1)), x_theta(:,:,j)));
         end
         
         % average CV's and sigma_x across all gradients
@@ -195,6 +222,7 @@ if simulate
         for j = 1:numel(readouts)
             T = table();
             T.diameterY = diameterY';
+            T.diameterX = diameterX';
             T.CV_lambda = CV_lambda;
             T.CV_lambda_SE = CV_lambda_SE;
             T.CV_0 = CV_0;
@@ -229,47 +257,22 @@ end
 % plot results
 if plotresults
     close all
-    figure('Position', [0 0 1600 500]);
-    
-    subplot(1,3,1)
-    hold on
-    mdl = fitnlm(diameterY(fitrange)./diameterX, CV_lambda(fitrange), @(p,x) p(1)*sqrt(x)+p(2), [1 0]);
-    CV_lambda_0 = mdl.Coefficients.Estimate(2);
-    plot(diameterY./diameterX, feval(mdl, diameterY./diameterX) - CV_lambda_0, '-', 'HandleVisibility', 'off', 'LineWidth', LineWidth, 'Color', colors(j,:))
-    errorbar(diameterY./diameterX, CV_lambda, CV_lambda_SE, 'o', 'LineWidth', LineWidth, 'Color', colors(j,:))
-    xlabel('\delta_y / \delta_x')
-    ylabel('Decay length variability  CV_\lambda')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
-    box on
-    xlim([min(diameterY./diameterX) max(diameterY./diameterX)])
+    figure
 
-    subplot(1,3,2)
-    hold on
-    mdl = fitnlm(diameterY(fitrange)./diameterX, CV_0(fitrange), @(p,x) p(1)*sqrt(x)+p(2), [1 0]);
-    CV_0_0 = mdl.Coefficients.Estimate(2);
-    plot(diameterY./diameterX, feval(mdl, diameterY./diameterX) - CV_0_0, '-', 'HandleVisibility', 'off', 'LineWidth', LineWidth, 'Color', colors(j,:))
-    errorbar(diameterY./diameterX, CV_0, CV_0_SE, 'o', 'LineWidth', LineWidth, 'Color', colors(j,:))
-    xlabel('\delta_y / \delta_x')
-    ylabel('Amplitude variability  CV_0')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
-    box on
-    xlim([min(diameterY./diameterX) max(diameterY./diameterX)])
-    
     for j = 1:numel(readouts)
         name = ['x_\theta = ' num2str(readouts(j)) ' \mu_\lambda'];
-        
-        subplot(1,3,3)
+
         hold on
-        mdl = fitnlm(diameterY(fitrange)./diameterX, sigma_x(fitrange,j) / diameterX, @(p,x) p(1)*sqrt(x)+p(2), [1 0]);
-        pe_0 = mdl.Coefficients.Estimate(2);
-        plot(diameterY./diameterX, feval(mdl, diameterY./diameterX) - pe_0, '-', 'HandleVisibility', 'off', 'LineWidth', LineWidth, 'Color', colors(j,:))
-        errorbar(diameterY./diameterX, sigma_x(:,j)./diameterX, sigma_x_SE(:,j)./diameterX, 'o', 'DisplayName', name, 'LineWidth', LineWidth, 'Color', colors(j,:))
+        mdl = fitnlm(diameterY(fitrange)./diameterX(fitrange), sigma_x(fitrange,j) ./ diameterX(fitrange)', @(p,x) p(1)*sqrt(x), 1);
+        plot(diameterY./diameterX, feval(mdl, diameterY./diameterX), '-', 'HandleVisibility', 'off', 'LineWidth', LineWidth, 'Color', colors(j,:))
+        errorbar(diameterY./diameterX, sigma_x(:,j)./diameterX', sigma_x_SE(:,j)./diameterX', 'o', 'DisplayName', name, 'LineWidth', LineWidth, 'Color', colors(j,:))
         xlabel('\delta_y / \delta_x')
-        ylabel('Relative Positional error  \sigma_x/\delta_x (cells)')
+        ylabel('Average positional error  \sigma_x/\delta_x (cells)')
         legend('show')
         set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
         box on    
         xlim([min(diameterY./diameterX) max(diameterY./diameterX)])
+    
     end
 end
 
