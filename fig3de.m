@@ -98,7 +98,7 @@ if simulate
             LS = ncS * diameterX(i);
         else
             ncS = ceil(LS/diameterX(i));
-            LS = ncX * diameterX(i);
+            LS = ncS * diameterX(i);
         end
 
         if mod(LP/diameterX(i),1) == 0
@@ -108,7 +108,7 @@ if simulate
             LP = ncP * diameterX(i);
         else
             ncP = ceil(LP/diameterX(i));
-            LP = ncX * diameterX(i);
+            LP = ncP * diameterX(i);
         end
 
         ncX = ncS + ncP;
