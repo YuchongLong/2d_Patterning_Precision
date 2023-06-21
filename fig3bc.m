@@ -42,7 +42,7 @@ colors = [0, 0.4470, 0.7410;...
 ncX = ncS + ncP; % total number of cells along the patterning axis
 LS = ncS * diameterX; % source length
 LP = ncP * diameterX; % pattern length
-hx = diameterX / res; % grid spacing in x direction
+hX = diameterX / res; % grid spacing in x direction
 
 % analytical deterministic solution
 C = @(x) mu_p/mu_d * ((x<0) .* (1-cosh(x/mu_lambda)) + sinh(LS/mu_lambda) / sinh((LS+LP)/mu_lambda) * cosh((LP-x)/mu_lambda));
@@ -85,7 +85,7 @@ if simulate
             LY = ncY * diameterY(i);
         end
         
-        hy = diameterY(i) / res; % grid spacing in y direction
+        hY = diameterY(i) / res; % grid spacing in y direction
 
         lambda = NaN(nruns, ncY);
         C0 = lambda;
@@ -106,15 +106,15 @@ if simulate
             D = repelem(D, res, res);
     
             % deterministic solution as initial guess
-            x = linspace(-LS, LP-hx, ncX * res)' + hx/2;
+            x = linspace(-LS, LP-hX, ncX * res)' + hX/2;
             C_old = C(x) * ones(1, ncY * res);
             
             param = {p,d,D};
             % solve the reaction-diffusion equation
             if zerofluxbc
-                C_new = boundary_conditions.zeroflux_bc(C_old, param, hx, hy, tol);
+                C_new = boundary_conditions.zeroflux_bc(C_old, param, hX, hY, tol);
             else
-                C_new = boundary_conditions.periodic_bc(C_old, param, hx, hy, tol);
+                C_new = boundary_conditions.periodic_bc(C_old, param, hX, hY, tol);
             end
 
             % for each cell in y direction

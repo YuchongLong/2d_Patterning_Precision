@@ -140,9 +140,9 @@ if simulate
             param = {p,d,D};
             % solve the reaction-diffusion equation
             if zerofluxbc
-                C_new = boundary_conditions.zeroflux_bc(C_old, param, hx, hy, tol);
+                C_new = boundary_conditions.zeroflux_bc(C_old, param, hX, hY, tol);
             else
-                C_new = boundary_conditions.periodic_bc(C_old, param, hx, hy, tol);
+                C_new = boundary_conditions.periodic_bc(C_old, param, hX, hY, tol);
             end
 
 
