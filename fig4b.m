@@ -1,5 +1,7 @@
-function fig4
+function fig4b
 
+% simulate the reaction-diffusion equation with fixed domain width, but 
+% increasing patterning domain lengths and decreasing cell diameter.
 
 % options
 simulate = true; % if false, plot results from saved files instead of generating new data

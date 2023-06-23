@@ -88,13 +88,13 @@ if simulate
             x = linspace(-LS, LP-h, ncX * res)' + h/2;
             C_old = C(x) * ones(1, ncY(i) * res);
             
-            hx = h;
-            hy = hx;
+            hX = h;
+            hY = hX;
             param = {p,d,D};
             if zerofluxbc
-                C_new = boundary_conditions.zeroflux_bc(C_old, param, hx, hy, tol);
+                C_new = boundary_conditions.zeroflux_bc(C_old, param, hX, hY, tol);
             else
-                C_new = boundary_conditions.periodic_bc(C_old, param, hx, hy, tol);
+                C_new = boundary_conditions.periodic_bc(C_old, param, hX, hY, tol);
             end
 
             % for each cell in y direction
